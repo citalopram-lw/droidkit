@@ -203,7 +203,10 @@ Apache License 2.0，全文见 `LICENSE`，版权与归属见 `NOTICE`。
 | 网络 | 地址 |
 |---|---|
 | Base (ETH / USDC) | `0x3dAC56CfFf3314DAF8aA146f3b811f4aa0ADd0C0` |
+| BNB Chain (BNB / USDT-BEP20) | `0x3dAC56CfFf3314DAF8aA146f3b811f4aa0ADd0C0` |
 | Tron (USDT-TRC20) | `TVH3DKjhd7CwD3qhEPaSkBMLTJezGaXRAV` |
+
+EVM 链（Base / BNB Chain / Ethereum / Arbitrum）共用同一地址，选对网络即可；Tron 独立。
 
 转账前核对地址首 6 位与末 6 位、确认网络一致（跨链无法找回）；打赏是赠与，不构成服务购买，
 也不提供优先支持。详见 [`DONATE.md`](DONATE.md)。

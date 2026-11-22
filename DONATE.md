@@ -8,11 +8,15 @@ DroidKit 是业余时间维护的开源项目，没有商业支持，也不卖�
 | 网络 | 币种 | 地址 |
 |---|---|---|
 | Base | ETH / USDC | `0x3dAC56CfFf3314DAF8aA146f3b811f4aa0ADd0C0` |
+| BNB Chain (BSC) | BNB / USDT (BEP-20) | `0x3dAC56CfFf3314DAF8aA146f3b811f4aa0ADd0C0` |
 | Tron | USDT (TRC-20) | `TVH3DKjhd7CwD3qhEPaSkBMLTJezGaXRAV` |
+
+> EVM 链（Base / BNB Chain / Ethereum / Arbitrum / Polygon）**共用同一个地址**，
+> 打款时在钱包里选对网络即可；Tron 是独立地址，两者不能混用。
 
 发送前请注意：
 
-1. **核对地址首 6 位与末 6 位**（Base: `0x3dAC` … `ADd0C0`；Tron: `TVH3DK` … `GaXRAV`），
+1. **核对地址首 6 位与末 6 位**（EVM: `0x3dAC` … `ADd0C0`；Tron: `TVH3DK` … `GaXRAV`），
    链上地址一旦打错无法撤回。
 2. **确认网络一致**：USDT 走 Tron 就选 TRC-20，走 Base 就是 Base 上的 USDC/ETH；
    跨链（例如把 ETH 打到 Tron 地址）无法找回。
@@ -26,7 +30,11 @@ If it saved you time, a tip is welcome — entirely optional and it never gates 
 | Network | Asset | Address |
 |---|---|---|
 | Base | ETH / USDC | `0x3dAC56CfFf3314DAF8aA146f3b811f4aa0ADd0C0` |
+| BNB Chain (BSC) | BNB / USDT (BEP-20) | `0x3dAC56CfFf3314DAF8aA146f3b811f4aa0ADd0C0` |
 | Tron | USDT (TRC-20) | `TVH3DKjhd7CwD3qhEPaSkBMLTJezGaXRAV` |
+
+> All EVM chains (Base / BNB Chain / Ethereum / Arbitrum / Polygon) share the same
+> address — just pick the matching network in your wallet. Tron uses a separate one.
 
 Verify the first and last six characters and the network before sending; cross-chain
 transfers are unrecoverable. Tips are gifts, not payment for services, and do not buy support.
