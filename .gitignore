@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.class
+*.dex
+*.apk
+*.jks
+*.keystore
+android/module/build/
+android/probe/build/
+profiles/local/
+*.log
+.DS_Store
+*.idsig

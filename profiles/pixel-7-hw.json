@@ -1,0 +1,29 @@
+{
+  "name": "pixel-7-hw",
+  "description": "Google Pixel 7 + host GPU (radeonsi via /dev/dri) — hardware rendering",
+  "hostname": "panther",
+  "gpu_mode": "host",
+  "abilist": "x86_64,arm64-v8a,x86",
+  "display": {
+    "width": 1080,
+    "height": 2400,
+    "dpi": 420
+  },
+  "build": {
+    "model": "Pixel 7",
+    "brand": "google",
+    "manufacturer": "Google",
+    "device": "panther",
+    "name": "panther",
+    "product": "panther",
+    "hardware": "gs101",
+    "board": "gs101",
+    "fingerprint": "google/panther/panther:15/AP4A.250105.002/12345678:user/release-keys",
+    "tags": "release-keys",
+    "type": "user",
+    "host": "buildhost",
+    "user": "builder",
+    "id": "AP4A.250105.002",
+    "display": "AP4A.250105.002"
+  }
+}
