@@ -1,5 +1,7 @@
 # DroidKit — 在 Linux 上跑安卓应用（redroid 15）
 
+[![ci](https://github.com/citalopram-lw/droidkit/actions/workflows/ci.yml/badge.svg)](https://github.com/citalopram-lw/droidkit/actions/workflows/ci.yml)
+
 > Android-in-Linux device platform: container lifecycle, performance tuning, virtual
 > sensors/GPS injection, anti-virtualization audit & hardening, and an MCP server.
 > Two profiles ship: `pixel-7` (software rendering) and `pixel-7-hw` (host GPU).

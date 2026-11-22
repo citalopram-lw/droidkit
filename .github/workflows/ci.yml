@@ -1,0 +1,24 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: byte-compile
+        run: python -m compileall -q droidkit
+      - name: cli smoke
+        run: bash scripts/droidkit --version
+      - name: module sources parse
+        run: python - <<'PY'
+import pathlib
+for f in pathlib.Path("android/module/src").rglob("*.java"):
+    assert f.read_text().count("{") >= 1, f
+print("java sources ok:", len(list(pathlib.Path("android/module/src").rglob("*.java"))))
+PY
