@@ -1,6 +1,6 @@
 # DroidKit — 在 Linux 上跑安卓应用（redroid 15）
 
-[![ci](https://github.com/citalopram-lw/droidkit/actions/workflows/ci.yml/badge.svg)](https://github.com/citalopram-lw/droidkit/actions/workflows/ci.yml)
+[![ci](https://github.com/citalopram-lw/droidkit/actions/workflows/ci.yml/badge.svg)](https://github.com/citalopram-lw/droidkit/actions/workflows/ci.yml) [![license](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 > Android-in-Linux device platform: container lifecycle, performance tuning, virtual
 > sensors/GPS injection, anti-virtualization audit & hardening, and an MCP server.
@@ -187,3 +187,10 @@ bash scripts/droidkit up --profile profiles/pixel-7-hw.json   # profile 里 gpu_
 | `v0.1.0-hw` | 同一代码 + `pixel-7-hw`（`gpu_mode=host`，`--device /dev/dri`），探针冷启动 1071→254 ms |
 
 两个 tag 指向同一棵树，差异只在 profile 与启动参数，见 `RELEASE.md`。
+
+## 许可
+
+Apache License 2.0，全文见 `LICENSE`，版权与归属见 `NOTICE`。
+
+**用途声明**：本项目仅用于自有设备、授权测试与安全研究。使用者需自行确认其行为符合当地法律与
+所涉服务条款；作者不对任何滥用、账号封禁或由此产生的损失承担责任。软件按 "AS IS" 提供，无任何担保。

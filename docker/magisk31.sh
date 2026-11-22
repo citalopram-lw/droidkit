@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
 # Build droidkit/redroid:15-magisk31 — the base image plus a *bootless* Magisk 31.1.
 #
 # Why this exists: the erstt base ships Magisk 25.2, whose Zygisk predates the

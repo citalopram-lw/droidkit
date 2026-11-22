@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """App install / launch helpers with ABI awareness."""
 from __future__ import annotations
 

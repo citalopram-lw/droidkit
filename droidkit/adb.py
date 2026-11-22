@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Thin, retrying adb wrapper bound to one device serial."""
 from __future__ import annotations
 

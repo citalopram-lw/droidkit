@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """DroidKit — Android-in-Linux device platform.
 
 Container lifecycle, performance tuning, virtual sensors, anti-virtualization

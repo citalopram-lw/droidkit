@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Anti-virtualization hardening: hide container/kernel/root tells from apps.
 
 Two layers, both measured against this container:

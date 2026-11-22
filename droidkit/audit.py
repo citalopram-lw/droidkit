@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Anti-virtualization detector.
 
 Runs the checks a hardened Android app (packer anti-emulator, banking SDK, game

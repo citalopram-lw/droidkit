@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Minimal, dependency-free MCP server (stdio, newline-delimited JSON-RPC 2.0).
 
 Implements the subset of Model Context Protocol 2024-11-05 that agent clients

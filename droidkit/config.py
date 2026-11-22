@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Static configuration: paths, defaults, device profiles."""
 from __future__ import annotations
 

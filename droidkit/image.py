@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Build the DroidKit Android image from the upstream Magisk-enabled redroid base.
 
 The stock image ships libndk_translation.so but points ro.dalvik.vm.native.bridge

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
 # Rebuild the device image with the ARM-translation bridge renamed and the old
 # copies hidden from native scanners (maps + stat).
 set -euo pipefail

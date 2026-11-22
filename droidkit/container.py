@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Container lifecycle for the redroid Android 15 device."""
 from __future__ import annotations
 

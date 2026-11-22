@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Virtual sensor / GPS control plane.
 
 The module (android/module) runs inside the target app process and reads its
