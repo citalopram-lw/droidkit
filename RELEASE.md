@@ -1,5 +1,17 @@
 # Release notes
 
+## v0.1.1 — 首个带预编译产物的发布
+
+代码无功能性变更，补齐了"能直接用"的三件事：
+
+- **预编译 APK**：`droidkit-hooks.apk`（模块，25 KB）、`droidkit-probe.apk`（探针，12.7 KB），
+  自签名，`adb install -r -g` 即可；签名证书指纹见下方，自行编译会得到不同指纹。
+- **许可证改为 Apache-2.0**：全文 + `NOTICE` + 源文件 SPDX 头。
+- **文档**：支持/免责声明、`DONATE.md`、`FUNDING.yml`；CI（byte-compile + CLI smoke）。
+
+两个 profile（`pixel-7` 软件渲染 / `pixel-7-hw` 硬件直通）不变，仍随仓库提供。
+
+
 ## v0.1.0-soft — software rendering (default)
 
 Redroid 15 device platform with Magisk 31.1 + Zygisk + Vector, built so that

@@ -21,6 +21,10 @@ droidkit/
 
 ## 快速开始
 
+> 不想自己编译：Releases 页有已签名的 `droidkit-hooks.apk` 与 `droidkit-probe.apk`。
+> 第一个容器仍然需要按下面的步骤构建镜像。
+
+
 ```bash
 cd ~/droidkit
 bash scripts/droidkit doctor                 # 宿主机前提（binderfs / adb / 数据目录）
