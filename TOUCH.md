@@ -38,11 +38,15 @@ Two non-obvious requirements, both learned the hard way:
    the node exactly once — on the inotify `IN_CREATE` — and never retries. The
    node is therefore created with mode `0666` (so `system` can open it
    immediately) and tightened to `root:input 0660` right after.
-2. **Every move frame must carry slot + pressure + contact size.** Frames with
+2. **Every frame is a complete contact, closed by exactly one SYN.** Frames with
    only `ABS_MT_POSITION_X/Y` left InputReader pinned to the press position: the
    app saw DOWN…UP at the starting point and no ACTION_MOVE at all.
 
 ## Usage
+
+The package ships a console entry point, so `droidkit` works after
+`pipx install .` (or `pip install --user .`); without installing, use
+`python -m droidkit` or `scripts/droidkit`.
 
 ```bash
 droidkit touch ensure                     # start daemon, create the node (idempotent)

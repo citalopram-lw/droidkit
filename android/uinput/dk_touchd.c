@@ -68,6 +68,7 @@ static int create_device(void) {
     ioctl(fd, UI_SET_ABSBIT, ABS_MT_POSITION_Y);
     ioctl(fd, UI_SET_ABSBIT, ABS_MT_PRESSURE);
     ioctl(fd, UI_SET_ABSBIT, ABS_MT_TOUCH_MAJOR);
+    ioctl(fd, UI_SET_ABSBIT, ABS_MT_WIDTH_MAJOR);
     ioctl(fd, UI_SET_PROPBIT, INPUT_PROP_DIRECT);
 
     struct uinput_setup us;
@@ -83,31 +84,38 @@ static int create_device(void) {
     abs_setup(ABS_MT_POSITION_Y, 0, 1919);
     abs_setup(ABS_MT_PRESSURE, 0, 255);
     abs_setup(ABS_MT_TOUCH_MAJOR, 0, 255);
+    abs_setup(ABS_MT_WIDTH_MAJOR, 0, 255);
 
     if (ioctl(fd, UI_DEV_CREATE) < 0) { perror("UI_DEV_CREATE"); return -3; }
     return 0;
 }
 
+/* A touch frame is only believable if it carries the whole contact: slot,
+ * position, pressure and contact size. Frames that omit size/major hand the app
+ * pressure without major/minor, which reads as a synthetic event. */
+/* Contact fields only — no SYN_REPORT. Callers close the frame exactly once:
+ * a down frame that ends without BTN_TOUCH is read as hover, not as a press. */
+static void contact_fields(int x, int y, int pressure, int major) {
+    if (pressure <= 0) pressure = 90 + rand() % 30;
+    if (major <= 0) major = 50 + rand() % 15;
+    emit(EV_ABS, ABS_MT_SLOT, 0);
+    emit(EV_ABS, ABS_MT_POSITION_X, x);
+    emit(EV_ABS, ABS_MT_POSITION_Y, y);
+    emit(EV_ABS, ABS_MT_PRESSURE, pressure);
+    emit(EV_ABS, ABS_MT_TOUCH_MAJOR, major);
+    emit(EV_ABS, ABS_MT_WIDTH_MAJOR, major);
+}
+
 static void finger_down(int x, int y) {
     emit(EV_ABS, ABS_MT_SLOT, 0);
     emit(EV_ABS, ABS_MT_TRACKING_ID, next_tid++);
-    emit(EV_ABS, ABS_MT_POSITION_X, x);
-    emit(EV_ABS, ABS_MT_POSITION_Y, y);
-    emit(EV_ABS, ABS_MT_PRESSURE, 90 + rand() % 30);
-    emit(EV_ABS, ABS_MT_TOUCH_MAJOR, 50 + rand() % 15);
+    contact_fields(x, y, 0, 0);
     emit(EV_KEY, BTN_TOUCH, 1);
-    sync_report();
+    sync_report();          /* one frame: contact + BTN_TOUCH together */
 }
 
-static void finger_move(int x, int y) {
-    /* Full frame per step: slot + pressure + contact size alongside the
-     * coordinates. Sending bare X/Y frames left InputReader pinned to the
-     * press position on this device. */
-    emit(EV_ABS, ABS_MT_SLOT, 0);
-    emit(EV_ABS, ABS_MT_POSITION_X, x);
-    emit(EV_ABS, ABS_MT_POSITION_Y, y);
-    emit(EV_ABS, ABS_MT_PRESSURE, 90 + rand() % 30);
-    emit(EV_ABS, ABS_MT_TOUCH_MAJOR, 50 + rand() % 15);
+static void finger_move(int x, int y, int pressure, int major) {
+    contact_fields(x, y, pressure, major);
     sync_report();
 }
 
@@ -126,7 +134,7 @@ static void do_swipe(int x1, int y1, int x2, int y2, int ms) {
         double t = (double)i / steps;
         /* ease-in-out: matches how a thumb actually accelerates */
         double e = t < 0.5 ? 2 * t * t : 1 - pow(-2 * t + 2, 2) / 2;
-        finger_move((int)lround(x1 + (x2 - x1) * e), (int)lround(y1 + (y2 - y1) * e));
+        finger_move((int)lround(x1 + (x2 - x1) * e), (int)lround(y1 + (y2 - y1) * e), 0, 0);
         usleep(ms * 1000 / steps);
     }
     finger_up();
@@ -145,7 +153,7 @@ static void handle_line(char *line) {
     } else if (!strcmp(cmd, "down") && n >= 3) {
         finger_down(a, b);
     } else if (!strcmp(cmd, "move") && n >= 3) {
-        finger_move(a, b);
+        finger_move(a, b, n >= 4 ? c : 0, n >= 5 ? d : 0);
     } else if (!strcmp(cmd, "up")) {
         finger_up();
     } else if (!strcmp(cmd, "swipe") && n >= 5) {

@@ -1,5 +1,24 @@
 # Release notes
 
+## v0.2.1 — touch correctness fixes
+
+三处修复，都是 v0.2.0 实测暴露出来的：
+
+- **可执行入口**：新增 `droidkit/__main__.py` 与 `pyproject.toml` 的
+  `[project.scripts]`，`pipx install .` 后直接敲 `droidkit touch tap ...`；
+  不安装也可 `python -m droidkit`。
+- **每帧都是完整接触**：新增 `ABS_MT_WIDTH_MAJOR`，MOVE 帧一律携带
+  `pressure + touch_major + width_major`（此前可出现 `size=0.000 major=0.000` 的帧）。
+- **按下帧单帧闭合**：`down` 以前发成两帧（第一帧没有 `BTN_TOUCH`），InputReader
+  按 hover 处理导致整条手势静默消失；现在 `SLOT/ID/X/Y/PRESSURE/MAJOR/WIDTH/BTN_TOUCH/SYN`
+  一帧发出。
+- **首帧竞争**：`touch ensure` 结束后做一次状态栏角落的预热按压；同时清理已销毁设备的
+  残留 `/dev/input/eventN`（EventHub 会一直抱着旧节点，导致新设备"已绑定但不收事件"）。
+
+实测（探针 `logcat -s TouchProbe`）：`ensure` 后立刻 tap → 首次即落（`ACTION_DOWN` 1/1）；
+300 ms 滑动 → `size=0` / `major=0` 帧数 **0**；单元测试 12 → **16**。
+
+
 ## v0.2.0 — human-like touch (uinput injector)
 
 新增 `droidkit touch`：在容器内自建 uinput 触摸屏（`fts_ts` / BUS_I2C /

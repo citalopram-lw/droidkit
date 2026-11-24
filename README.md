@@ -204,6 +204,7 @@ bash scripts/droidkit up --profile profiles/pixel-7-hw.json   # profile 里 gpu_
 | 事件序列 | DOWN, UP | DOWN, MOVE…, UP |
 
 ```bash
+pipx install .            # 或 pip install --user .；不想装就用 python -m droidkit
 droidkit touch ensure                      # 起注入守护进程 + 建 /dev/input 节点
 droidkit touch tap --text 登录              # 按文本点（也可 --id / --desc / 坐标）
 droidkit touch swipe 540 1400 540 600 --ms 250

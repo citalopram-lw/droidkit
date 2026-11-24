@@ -15,6 +15,8 @@ jobs:
         run: python -m compileall -q droidkit
       - name: cli smoke
         run: bash scripts/droidkit --version
+      - name: module entry point
+        run: python -m droidkit --version
       - name: unit tests
         run: python -m unittest discover -s tests -t . -v
       - name: module sources present

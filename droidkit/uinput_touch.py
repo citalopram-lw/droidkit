@@ -109,6 +109,31 @@ class Touch:
             return name, major, minor
         return None
 
+    def _stale_nodes(self) -> list[str]:
+        """Event nodes that still exist on disk but belong to a dead device.
+
+        EventHub keeps a device bound to its node until that node disappears, so
+        a node left over from a destroyed uinput device blocks the replacement
+        from ever being picked up (the new one is created, but touches vanish).
+        """
+        out = self.adb.sh("cat /proc/bus/input/devices")
+        names = []
+        for block in out.split("\n\n"):
+            if f'Name="{DEVICE_NAME}"' not in block:
+                continue
+            m = re.search(r"H: Handlers=([^\n]*)", block)
+            if m:
+                names += [h for h in m.group(1).split() if h.startswith("event")]
+        return [f"/dev/input/{n}" for n in names]
+
+    def _purge_stale(self) -> list[str]:
+        removed = []
+        for path in self._stale_nodes():
+            if self.adb.sh(f"test -e {path} && echo yes").strip() == "yes":
+                self.adb.sh(f"rm -f {path}")
+                removed.append(path)
+        return removed
+
     def _link_node(self) -> str:
         info = self._event_node()
         if not info:
@@ -133,7 +158,10 @@ class Touch:
             self.adb.sh("echo quit > " + CMD_PATH)
             time.sleep(0.4)
             self.adb.sh("pkill -x dk_touchd || true")
-            time.sleep(0.2)
+            time.sleep(0.3)
+        # A leftover node from a destroyed device keeps EventHub pinned to a
+        # corpse: the replacement device is invisible until the node goes away.
+        purged = self._purge_stale()
         if not self._daemon_running():
             self._start_daemon()
         if not self._event_node():
@@ -143,10 +171,27 @@ class Touch:
         for _ in range(25):
             dump = self.adb.sh("dumpsys input")
             if f": {DEVICE_NAME}" in dump:
-                return {"node": node, "device": DEVICE_NAME, "bound": True}
+                return {"node": node, "device": DEVICE_NAME, "bound": True,
+                        "purged": purged, "warmup": self.warmup()}
             time.sleep(0.2)
-        return {"node": node, "device": DEVICE_NAME, "bound": False,
+        return {"node": node, "device": DEVICE_NAME, "bound": False, "purged": purged,
                 "hint": "EventHub did not bind; re-run ensure() to re-create the node"}
+
+    def warmup(self) -> bool:
+        """Absorb the first-frame race right after the device is attached.
+
+        EventHub opens the node and the very first gesture can be consumed while
+        InputReader initialises touch state, so a caller's first tap after
+        ``ensure()`` may vanish. A single press-release in the status-bar corner
+        (no actionable target there) gets that frame out of the way.
+
+        Disable with DROIDKIT_NO_WARMUP=1.
+        """
+        if os.environ.get("DROIDKIT_NO_WARMUP"):
+            return False
+        self._send(["down 2 2", "sleep 40", "move 3 3 100 58", "sleep 16", "up"])
+        time.sleep(0.12)
+        return True
 
     def stop(self) -> None:
         self.adb.sh(f"echo quit > {CMD_PATH}")
@@ -216,7 +261,11 @@ class Touch:
         step_ms = max(8, int(1000 / STEP_HZ))
         lines = [f"down {x1} {y1}"]
         for px, py in self.path(x1, y1, x2, y2, ms):
-            lines += [f"move {px} {py}", f"sleep {step_ms}"]
+            # pressure and contact size travel with every step: a frame that
+            # omits them arrives at the app as size=0 / major=0
+            press = 88 + random.randint(0, 34) if self.human else 100
+            major = 50 + random.randint(0, 15) if self.human else 58
+            lines += [f"move {px} {py} {press} {major}", f"sleep {step_ms}"]
         lines.append("up")
         self._send(lines)
 

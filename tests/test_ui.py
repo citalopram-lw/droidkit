@@ -94,5 +94,62 @@ class GeometryTests(unittest.TestCase):
         self.assertEqual(ui.find(nodes, text="共享")[0].rid, "c")
 
 
+class GesturePayloadTests(unittest.TestCase):
+    """Every injected frame must be a complete contact."""
+
+    def _capture(self, **kw):
+        from droidkit.uinput_touch import Touch
+
+        class FakeAdb:
+            def shell(self, *a, **k): return ""
+            def sh(self, *a, **k): return ""
+            def run(self, *a, **k): return ""
+
+        class Recorder(Touch):
+            sent = []
+
+            def _send(self, lines):
+                Recorder.sent.append(lines)
+
+            def _screen(self):
+                return (1080, 1920)
+
+        Recorder.sent.clear()
+        t = Recorder(FakeAdb(), human=False, **kw)
+        return t, Recorder.sent
+
+    def test_swipe_steps_carry_pressure_and_size(self):
+        t, sent = self._capture()
+        t.swipe(100, 100, 500, 500, ms=120)
+        lines = sent[-1]
+        moves = [l for l in lines if l.startswith("move ")]
+        self.assertTrue(moves)
+        for line in moves:
+            parts = line.split()
+            self.assertEqual(len(parts), 5, line)          # move x y pressure major
+            self.assertGreater(int(parts[3]), 0, line)
+            self.assertGreater(int(parts[4]), 0, line)
+
+    def test_swipe_closes_with_up(self):
+        t, sent = self._capture()
+        t.swipe(100, 100, 500, 500, ms=80)
+        self.assertEqual(sent[-1][-1], "up")
+
+    def test_tap_is_down_sleep_up(self):
+        t, sent = self._capture()
+        t.tap(300, 300)
+        self.assertEqual([l.split()[0] for l in sent[-1]], ["down", "sleep", "up"])
+
+    def test_warmup_can_be_disabled(self):
+        import os
+        t, sent = self._capture()
+        os.environ["DROIDKIT_NO_WARMUP"] = "1"
+        try:
+            self.assertFalse(t.warmup())
+        finally:
+            del os.environ["DROIDKIT_NO_WARMUP"]
+        self.assertFalse(sent)
+
+
 if __name__ == "__main__":
     unittest.main()
