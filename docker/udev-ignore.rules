@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+# Keep DroidKit's synthetic touchscreen out of the host desktop session.
+#
+# The container shares the host kernel, so the uinput device a container creates
+# is visible to the host too: GNOME/Xorg would treat our injected touches as a
+# second touchscreen and move the real pointer. libinput honours
+# LIBINPUT_IGNORE_DEVICE, and Android's InputReader does not use udev at all,
+# so this rule silences the host without touching injection into Android.
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="fts_ts", ENV{LIBINPUT_IGNORE_DEVICE}="1"

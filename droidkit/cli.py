@@ -17,6 +17,88 @@ def _adb(args) -> Adb:
     return Adb(getattr(args, "serial", None) or config.SERIAL)
 
 
+def _touch(adb: Adb, args) -> int:
+    from . import ui
+    from .uinput_touch import Touch, TouchError
+
+    t = Touch(adb, human=not args.raw)
+    action = args.action
+
+    if action == "status":
+        print(json.dumps(t.status(), ensure_ascii=False, indent=2)); return 0
+    if action == "ensure":
+        print(json.dumps(t.ensure(restart=True), ensure_ascii=False, indent=2)); return 0
+    if action == "stop":
+        t.stop(); print("stopped"); return 0
+    if action == "ui":
+        print(ui.describe(t.nodes())); return 0
+    if action == "screen":
+        script = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                              "scripts", "screen.sh")
+        os.execv("/bin/bash", ["bash", script, adb.serial])
+
+    selector = args.sel
+    if not selector:
+        if args.rid:
+            selector = f"id:{args.rid}"
+        elif args.text:
+            selector = f"text:{args.text}"
+        elif args.desc:
+            selector = f"desc:{args.desc}"
+
+    try:
+        if action in ("tap", "long"):
+            if selector:
+                node = t.tap_element(selector, timeout=args.wait)
+                if action == "long":
+                    # tap_element already lifted; replay as a hold on the same spot
+                    x, y = node.center
+                    t.long_press(x, y, args.hold)
+                print(node.label() or node.cls)
+                return 0
+            if len(args.coords) != 2:
+                print("touch tap/long needs 'x y' or a selector (--text/--id/--desc)", file=sys.stderr)
+                return 2
+            try:
+                x, y = int(args.coords[0]), int(args.coords[1])
+            except ValueError:
+                print("touch tap/long: coordinates must be integers", file=sys.stderr)
+                return 2
+            if action == "tap":
+                t.tap(x, y, args.hold)
+            else:
+                t.long_press(x, y, args.hold)
+            print(f"{action} {x},{y}")
+            return 0
+
+        if action == "swipe":
+            if len(args.coords) != 4:
+                print("touch swipe needs 'x1 y1 x2 y2'", file=sys.stderr)
+                return 2
+            try:
+                pts = [int(c) for c in args.coords]
+            except ValueError:
+                print("touch swipe: coordinates must be integers", file=sys.stderr)
+                return 2
+            t.swipe(*pts, ms=args.ms)
+            print("swipe " + " ".join(str(c) for c in args.coords))
+            return 0
+
+        if action == "scroll":
+            direction, distance = args.direction, args.distance
+            if args.coords:
+                direction = args.coords[0]
+                if len(args.coords) > 1:
+                    distance = int(args.coords[1])
+            t.scroll(direction, distance, args.ms)
+            print(f"scroll {direction} {distance}")
+            return 0
+    except TouchError as e:
+        print(f"touch: {e}", file=sys.stderr)
+        return 1
+    return 2
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="droidkit", description="Android-in-Linux device platform")
     ap.add_argument("-V", "--version", action="version", version=f"droidkit {__version__}")
@@ -57,6 +139,21 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("key", help="key event")
     p.add_argument("key")
     sub.add_parser("ui", help="dump UI hierarchy")
+
+    p = sub.add_parser("touch", help="human-like touch injection (uinput device)")
+    p.add_argument("action", choices=["tap", "long", "swipe", "scroll", "ui", "status",
+                                      "ensure", "stop", "screen"])
+    p.add_argument("coords", nargs="*", help="x y | x1 y1 x2 y2 | <direction> [distance] for scroll")
+    p.add_argument("--text", default="", help="target element by visible text")
+    p.add_argument("--id", dest="rid", default="", help="target element by resource-id")
+    p.add_argument("--desc", default="", help="target element by content-desc")
+    p.add_argument("--sel", default="", help="raw selector, e.g. text~:登录")
+    p.add_argument("--wait", type=float, default=0.0, help="seconds to wait for the element")
+    p.add_argument("--hold", type=int, default=None, help="press duration in ms")
+    p.add_argument("--ms", type=int, default=None, help="swipe duration in ms")
+    p.add_argument("--distance", type=int, default=600, help="scroll distance in px")
+    p.add_argument("--direction", default="up", choices=["up", "down", "left", "right"])
+    p.add_argument("--raw", action="store_true", help="disable human-like jitter and timing")
 
     p = sub.add_parser("install", help="install APK")
     p.add_argument("apk"); p.add_argument("--abi", default=None)
@@ -123,6 +220,11 @@ def main(argv: list[str] | None = None) -> int:
                 res["perf"] = {"host": perf.host_tune(c.name), "android": perf.android_tune(_adb(args))}
             if not args.no_stealth:
                 res["stealth"] = stealth.apply(_adb(args))
+            try:
+                from .uinput_touch import Touch
+                res["touch"] = Touch(_adb(args)).ensure(restart=True)
+            except Exception as e:  # never fail `up` because of the injector
+                res["touch"] = {"error": str(e)}
         print(json.dumps(res, ensure_ascii=False, indent=2))
         return 0
 
@@ -150,6 +252,9 @@ def main(argv: list[str] | None = None) -> int:
         adb.key(args.key); print("ok"); return 0
     if args.cmd == "ui":
         print(adb.ui_dump()); return 0
+
+    if args.cmd == "touch":
+        return _touch(adb, args)
 
     if args.cmd == "install":
         print(json.dumps(apps.install(adb, args.apk, args.abi), indent=2)); return 0

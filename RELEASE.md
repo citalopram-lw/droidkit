@@ -1,5 +1,24 @@
 # Release notes
 
+## v0.2.0 — human-like touch (uinput injector)
+
+新增 `droidkit touch`：在容器内自建 uinput 触摸屏（`fts_ts` / BUS_I2C /
+INPUT_PROP_DIRECT），事件带真实 `deviceId`、压力与接触面积。
+
+- 手势：tap / long press / swipe（贝塞尔 + 抖动）/ scroll，按压 58–128 ms、
+  落点高斯 σ=1.5 px、控件矩形内缩 15 %
+- 定位：`ui_dump` → 选择器（resource-id / text / content-desc / 包含）
+- MCP：新增 `touch_tap` / `touch_long_press` / `touch_swipe` / `touch_scroll` /
+  `touch_ui` / `touch_status` / `touch_ensure`（33 个工具）
+- 交互画面：`droidkit touch screen`（scrcpy，`--watch` 为只读）
+- 宿主机隔离：`docker/udev-ignore.rules` 让 libinput 忽略该设备
+- 验证：探针实测 `deviceId=6 / devName=fts_ts / toolType=1 / pressure 0.35–0.46 /
+  size 0.20–0.24 / major 52–61`；`--hold 700` 实测 700.087 ms；12 个单元测试
+
+已知限制：仅单指（多点未实现）；容器重启后需 `droidkit touch ensure`；
+Xposed 应用内合成 MotionEvent 未实现（uinput 已覆盖系统 UI 与全部应用）。
+
+
 ## v0.1.1 — 首个带预编译产物的发布
 
 代码无功能性变更，补齐了"能直接用"的三件事：

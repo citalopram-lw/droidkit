@@ -175,3 +175,76 @@ ro.hardware.egl=mesa   ro.hardware.gralloc=gbm
 
 硬件版代价：`ro.hardware.egl=mesa`、`gralloc=gbm` 这两个 prop 本身就是容器/模拟器特征，
 反检测口径比软件版弱一档；软件版保持原样未动。
+
+## 12. 小步点 GPS 两处坑（2026-11-23 实测，已在模块里修）
+
+跑通登录态后，容器里踩到两个「明明在喂定位却报 GPS 错」的问题，都只有实测能发现：
+
+1. **静止 >20–25 s 判「无法获取GPS定位」**。即使 1 Hz 持续推 fix（`pushes` 在涨、`age≈1000 ms`、
+   `listeners=4~8`），小步点仍会弹红屏「无法获取GPS定位」——它看的是位置有没有在动。
+   之前 `hold` 会停掉 step、只保留 push，仍会被判死。修法：模块新增 `shuffle [r]`
+   （默认 4 m 半径、0.6 m/s 原地绕小圈），到点等待改成 `shuffle 4`；实测静止 30 s
+   仍是黄播放键、地图正常。
+2. **不能用 `am start` 直接拉起跑动页**。`am start -n ...sport.run.RunAdvancedActivity`
+   进去后定位客户端没初始化，必然报「无法获取GPS定位」；必须走 App 自己的
+   主页 → 跑步 键的流程。
+
+旁证（`status` 里新加的计数）：`listeners / pushes / age / gnss` —— 用来区分
+「模块没在推」和「App 不认」，排查先看这四个数。
+
+## 13. 容器重启后要恢复的东西（`live/ensure_env.sh` 一键）
+
+`adb root`（shell uid 会被 Magisk 拒）、docker 桥默认路由、`net.dns1/2`、
+`/system/etc/hosts` 反广告 bind mount、`mttouch_pinch` 二进制、模块 scope。
+`/dev/input` 是 tmpfs，uinput 设备节点由 `mttouch_pinch` 每次自建（minor 必须读
+`/sys/class/input/eventN/dev`，不能按 `64+N` 算）。
+
+## 14. 学分跑有效性的硬约束（2026-11-23 实测，dk31 容器）
+
+App：run.xbud.android 2.6.8，规则页原文「依次经过系统分配的点位完成跑步 / 里程至少 1 公里 /
+配速 3'30"–10'00" / 步频 50–300 / 超出 4 公里以外部分不计入成绩」。
+
+**结束前的四项判定**（长按「结束」6 s 才弹出）：
+| 项 | 要求 | 教训 |
+|---|---|---|
+| 步频 | 50–300 步/分 | **必须显式 `cadence 3.34`**；不注入则整趟不计成绩（实测 1.99 km 作废） |
+| 配速 | 3'30"–10'00" | App 显示配速 ≈ 注入速度 + 约 2.5 m/s 的 GPS 抖动底噪 |
+| 里程 | ≥1 km | — |
+| 点位 | 依次经过 | **不跑点即使 4.17 km 也不计入**（实测首页总里程不变） |
+
+**模块指令通道的四个坑**：
+1. `cmd` 文件 1 Hz 单次消费 —— 连发两条会互相覆盖（`nav` 被 `cadence` 吃掉）；
+   写完要等文件消失再发下一条。
+2. 新进程里 `pos=null`，直接 `nav` 会瞬移到目标点 —— 先 `start` 初始化 pos。
+3. `shuffle` 是粘住的 —— 不先 `stop`，之后所有 `nav` 都被忽略。
+4. 静止 >20–25 s → App 弹「无法获取GPS定位」遮罩，**吞掉所有点击**（结束按钮点不动就是这个）。
+
+**UI 操作**：结束流程 = ← 进简化视图 → 暂停 → **长按「结束」6 s** → 弹判定清单 →「结束运动」。
+锁定态只有长按 5 s 才能解锁；气泡「下一个点位」常盖住针，检测不到针时用气泡位置 +55 px 近似。
+
+**有效区域**：出校园边界会弹「你已脱离有效区域，脱离期间自动暂停」，里程与计时双停。
+中心取 29.4488,119.2644，半径 110 m 绕圈可长期稳定。
+
+## 15. 可跑通的自动化配方（2026-11-24 实测，一次计入 4.00 km）
+
+**结果**：总里程 16.30 → 20.30 KM；单趟 App 记 4.44 km（超 4 km 部分不计），配速 8'47"–9'27"，
+点位 2 个打勾 + 2 次「点位已切换」，结束判定四过。日志 `/tmp/rp_fast.log`。
+
+**顺序**（每一步都有坑，别换顺序）：
+1. `python start_run.py` —— 自动处理「放弃未完成」「自动结束」弹窗 + GPS 门禁 + `cadence 3.34` + nav 预热。
+2. `python run_points.py --minutes N --collect --speed-max 3.2` —— 分割模型选向 + 找针。
+3. 到点后如果「点位没变」→ **网格搜索**：估计点周围 ±30/45/60 m、15 m 步长，每格停 3 s，
+   让 App 自己判「到达」（地图定位有 ±40 m 噪声，绕圈碰不到判定圈）。
+4. 配速被停等拖高时把 `--speed-max` 提到 3.0–3.2 拉回来（累计配速必须 < 10'00"）。
+5. `python finish.py` —— ← 进简化视图 → 暂停 → 长按「结束」6 s → 判定弹窗 → 「结束运动」。
+6. 记录页会弹激励视频广告，关闭按钮 `content-desc=inter-close-button_closeBtn`，按 **uiautomator 查 bounds** 再点，
+   写死坐标会点在视频上（实测 (183,1415) 有效）。
+
+**开机后必做**（主机重启会让容器变砖，症状：servicemanager 僵尸、zygote restarting、adb offline）：
+```bash
+docker run --rm --privileged --pid=host -v /:/host alpine chroot /host \
+  sh -c "modprobe binder_linux; mkdir -p /dev/binderfs; mount -t binder binder /dev/binderfs"
+docker restart dk31 && bash live/ensure_env.sh
+```
+不做这一步，Magisk 会半应用（magiskpolicy SIGABRT），**hook 的 native 部分会把 App 打崩**（runtime.cc 回溯），
+表现是 Splash 一闪就回桌面。

@@ -18,7 +18,8 @@ import traceback
 
 from . import __version__, config
 from .adb import Adb
-from . import apps, audit, container, perf, sensors, stealth
+from . import apps, audit, container, perf, sensors, stealth, ui
+from .uinput_touch import Touch, TouchError
 
 PROTOCOL = "2024-11-05"
 
@@ -136,6 +137,122 @@ def _input_text(args):
 def _input_key(args):
     _adb().key(args["key"])
     return _text("key sent")
+
+
+# ------------------------------------------------------- human-like touch (uinput)
+_SEL_PROPS = {
+    "text": {"type": "string", "description": "visible text, exact match"},
+    "id": {"type": "string", "description": "resource-id, exact match"},
+    "desc": {"type": "string", "description": "content-desc, exact match"},
+    "sel": {"type": "string", "description": "raw selector, e.g. text~:登录"},
+    "wait_s": {"type": "number", "description": "seconds to wait for the element"},
+    "human": {"type": "boolean", "default": True,
+              "description": "jitter + realistic timing (disable only for pixel-exact tests)"},
+}
+
+
+def _touch(args) -> Touch:
+    return Touch(_adb(), human=args.get("human", True))
+
+
+def _selector(args) -> str:
+    if args.get("sel"):
+        return args["sel"]
+    if args.get("id"):
+        return f"id:{args['id']}"
+    if args.get("text"):
+        return f"text:{args['text']}"
+    if args.get("desc"):
+        return f"desc:{args['desc']}"
+    return ""
+
+
+@tool("touch_tap", "Tap an element or a point with a synthetic finger (real touchscreen device, deviceId != -1).",
+      {"type": "object",
+       "properties": {**_SEL_PROPS,
+                      "x": {"type": "integer"}, "y": {"type": "integer"},
+                      "hold_ms": {"type": "integer"}}})
+def _touch_tap(args):
+    t = _touch(args)
+    sel = _selector(args)
+    try:
+        if sel:
+            node = t.tap_element(sel, timeout=args.get("wait_s", 0))
+            return _text(f"tapped {node.label() or node.cls} at {node.center}")
+        if "x" in args and "y" in args:
+            t.tap(args["x"], args["y"], args.get("hold_ms"))
+            return _text(f"tapped {args['x']},{args['y']}")
+    except TouchError as e:
+        return _text(f"error: {e}")
+    return _text("error: give text/id/desc/sel or x,y")
+
+
+@tool("touch_long_press", "Press and hold an element/point (long click).",
+      {"type": "object",
+       "properties": {**_SEL_PROPS,
+                      "x": {"type": "integer"}, "y": {"type": "integer"},
+                      "hold_ms": {"type": "integer", "default": 700}}})
+def _touch_long(args):
+    t = _touch(args)
+    sel = _selector(args)
+    try:
+        if sel:
+            node = t.locate(sel, timeout=args.get("wait_s", 0))
+            x, y = node.center
+            t.long_press(x, y, args.get("hold_ms", 700))
+            return _text(f"held {node.label() or node.cls} at {x},{y}")
+        if "x" in args and "y" in args:
+            t.long_press(args["x"], args["y"], args.get("hold_ms", 700))
+            return _text(f"held {args['x']},{args['y']}")
+    except TouchError as e:
+        return _text(f"error: {e}")
+    return _text("error: give text/id/desc/sel or x,y")
+
+
+@tool("touch_swipe", "Swipe along a curved, jittered path (drag / fling).",
+      {"type": "object",
+       "properties": {"x1": {"type": "integer"}, "y1": {"type": "integer"},
+                      "x2": {"type": "integer"}, "y2": {"type": "integer"},
+                      "ms": {"type": "integer"}, "human": {"type": "boolean", "default": True}},
+       "required": ["x1", "y1", "x2", "y2"]})
+def _touch_swipe(args):
+    _touch(args).swipe(args["x1"], args["y1"], args["x2"], args["y2"], args.get("ms"))
+    return _text(f"swiped {args['x1']},{args['y1']} -> {args['x2']},{args['y2']}")
+
+
+@tool("touch_scroll", "One-finger scroll in a direction.",
+      {"type": "object",
+       "properties": {"direction": {"type": "string", "enum": ["up", "down", "left", "right"]},
+                      "distance": {"type": "integer", "default": 600},
+                      "ms": {"type": "integer"}, "human": {"type": "boolean", "default": True}},
+       "required": ["direction"]})
+def _touch_scroll(args):
+    try:
+        _touch(args).scroll(args["direction"], args.get("distance", 600), args.get("ms"))
+    except TouchError as e:
+        return _text(f"error: {e}")
+    return _text(f"scrolled {args['direction']} {args.get('distance', 600)}")
+
+
+@tool("touch_ui", "List on-screen elements with coordinates and clickability.",
+      {"type": "object", "properties": {"limit": {"type": "integer", "default": 40}}})
+def _touch_ui(args):
+    return _text(ui.describe(_touch(args).nodes(), limit=args.get("limit", 40)))
+
+
+@tool("touch_status", "Touch injector status: daemon, uinput device, InputReader binding.",
+      {"type": "object", "properties": {}})
+def _touch_status(args):
+    return _text(_touch(args).status())
+
+
+@tool("touch_ensure", "Start the injector daemon and (re)create the /dev/input node.",
+      {"type": "object", "properties": {}})
+def _touch_ensure(args):
+    try:
+        return _text(_touch(args).ensure())
+    except TouchError as e:
+        return _text(f"error: {e}")
 
 
 @tool("ui_dump", "Dump the current UI hierarchy XML.", {"type": "object", "properties": {}})

@@ -23,6 +23,7 @@ public final class Cfg {
     public boolean loop = true;
     public boolean autoStart = true;
     public boolean hideArtifacts = true;
+    public boolean diag = false;
     public long mtime = 0L;
 
     public String bModel, bBrand, bManufacturer, bDevice, bProduct, bHardware,
@@ -53,6 +54,7 @@ public final class Cfg {
             c.loop = o.optBoolean("loop", c.loop);
             c.autoStart = o.optBoolean("auto_start", c.autoStart);
             c.hideArtifacts = o.optBoolean("hide_artifacts", c.hideArtifacts);
+            c.diag = o.optBoolean("diag", c.diag);
             JSONObject b = o.optJSONObject("build");
             if (b != null) {
                 c.bModel = b.optString("model", null);

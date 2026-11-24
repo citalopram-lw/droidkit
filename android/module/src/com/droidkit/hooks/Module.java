@@ -74,6 +74,9 @@ public final class Module implements IXposedHookLoadPackage {
         if (cfg.hideArtifacts) {
             try { hookFiles(); Log.i(TAG, "file hide hooks installed"); } catch (Throwable t) { Log.e(TAG, "file hooks: " + t); }
         try { hookUname(); Log.i(TAG, "uname hooks installed"); } catch (Throwable t) { Log.e(TAG, "uname hooks: " + t); }
+        if (cfg.diag) {
+            try { hookLocationDiag(); Log.i(TAG, "location diag installed"); } catch (Throwable t) { Log.e(TAG, "loc diag: " + t); }
+        }
         reportIdentity();
         }
     }
@@ -177,7 +180,12 @@ public final class Module implements IXposedHookLoadPackage {
         });
         XposedBridge.hookAllMethods(LocationManager.class, "getProviders", new XC_MethodHook() {
             @Override protected void beforeHookedMethod(MethodHookParam p) {
-                p.setResult(new String[]{"gps", "network", "fused", "passive"});
+                // MUST be a List: getProviders() returns List<String>. Returning a String[]
+                // here makes any caller that iterates it die with IncompatibleClassChangeError
+                // (measured: BeiZi ad SDK crashed the whole app on the home page).
+                java.util.List<String> l = new java.util.ArrayList<>();
+                l.add("gps"); l.add("network"); l.add("fused"); l.add("passive");
+                p.setResult(l);
             }
         });
         XposedBridge.hookAllMethods(LocationManager.class, "getAllProviders", new XC_MethodHook() {
@@ -190,6 +198,72 @@ public final class Module implements IXposedHookLoadPackage {
         XposedBridge.hookAllMethods(LocationManager.class, "getBestProvider", new XC_MethodHook() {
             @Override protected void beforeHookedMethod(MethodHookParam p) { p.setResult("gps"); }
         });
+        hookGnss();
+    }
+
+    // ---- GNSS status feed -------------------------------------------------
+    // 小步点 (via 高德 aps) gates the run page on GnssStatus callbacks: with no
+    // GNSS HAL in a redroid container it sees zero satellites and sits on
+    // 「正在获取GPS信号…」 forever. Feed every registered callback a synthetic
+    // 13-satellite sky so the app's own quality check passes.
+    private static final java.util.List<android.location.GnssStatus.Callback> GNSS =
+            new java.util.concurrent.CopyOnWriteArrayList<>();
+    private static android.os.Handler gnssHandler;
+
+    private static void hookGnss() {
+        XC_MethodHook cb = new XC_MethodHook() {
+            @Override protected void afterHookedMethod(MethodHookParam p) {
+                if (p.args == null) return;
+                for (Object a : p.args) {
+                    if (a instanceof android.location.GnssStatus.Callback) {
+                        feedGnss((android.location.GnssStatus.Callback) a);
+                    }
+                }
+            }
+        };
+        try { XposedBridge.hookAllMethods(LocationManager.class, "registerGnssStatusCallback", cb); } catch (Throwable ignored) {}
+        try { XposedBridge.hookAllMethods(LocationManager.class, "addGpsStatusListener", cb); } catch (Throwable ignored) {}
+    }
+
+    private static synchronized void feedGnss(final android.location.GnssStatus.Callback c) {
+        for (android.location.GnssStatus.Callback x : GNSS) if (x == c) return;
+        GNSS.add(c);
+        Log.i(TAG, "gnss callback += " + c.getClass().getName() + " total=" + GNSS.size());
+        if (gnssHandler != null) return;
+        gnssHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+        gnssHandler.post(new Runnable() {
+            @Override public void run() {
+                try {
+                    android.location.GnssStatus st = fakeStatus();
+                    for (android.location.GnssStatus.Callback x : GNSS) {
+                        try { x.onStarted(); } catch (Throwable ignored) {}
+                        try { x.onFirstFix(1200); } catch (Throwable ignored) {}
+                        try { x.onSatelliteStatusChanged(st); } catch (Throwable ignored) {}
+                    }
+                } catch (Throwable ignored) {
+                } finally {
+                    gnssHandler.postDelayed(this, 1000);
+                }
+            }
+        });
+    }
+
+    static int gnssCount() { return GNSS.size(); }
+
+    private static android.location.GnssStatus fakeStatus() {
+        android.location.GnssStatus.Builder b = new android.location.GnssStatus.Builder();
+        for (int i = 0; i < 10; i++) {
+            b.addSatellite(android.location.GnssStatus.CONSTELLATION_GPS, i + 1,
+                    36.0f - i * 0.4f, 40.0f + i * 3, (i * 33) % 360,
+                    true, true, true, false, 0f, false, 0f);
+        }
+        b.addSatellite(android.location.GnssStatus.CONSTELLATION_BEIDOU, 12,
+                41.0f, 55f, 130f, true, true, true, false, 0f, false, 0f);
+        b.addSatellite(android.location.GnssStatus.CONSTELLATION_BEIDOU, 20,
+                39.0f, 62f, 210f, true, true, true, false, 0f, false, 0f);
+        b.addSatellite(android.location.GnssStatus.CONSTELLATION_GLONASS, 7,
+                33.0f, 25f, 300f, true, true, true, false, 0f, false, 0f);
+        return b.build();
     }
 
     private static void hookSensors() {
@@ -260,6 +334,27 @@ public final class Module implements IXposedHookLoadPackage {
                 }
             }
         }); } catch (Throwable ignored) {}
+    }
+
+    /** Diagnostic: log every LocationManager call the app makes (config "diag": true). */
+    private static void hookLocationDiag() {
+        for (java.lang.reflect.Method m : LocationManager.class.getDeclaredMethods()) {
+            final String nm = m.getName();
+            try {
+                XposedBridge.hookMethod(m, new XC_MethodHook() {
+                    @Override protected void beforeHookedMethod(MethodHookParam p) {
+                        StringBuilder sb = new StringBuilder(nm).append('(');
+                        if (p.args != null) {
+                            for (Object a : p.args) {
+                                sb.append(a == null ? "null" : a.getClass().getSimpleName()).append(',');
+                            }
+                        }
+                        Log.i(TAG, "LM " + sb.append(')'));
+                    }
+                });
+            } catch (Throwable ignored) {
+            }
+        }
     }
 
     /** Measure what a native scanner would see in THIS process (the detector's ruler). */

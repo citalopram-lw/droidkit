@@ -192,6 +192,27 @@ bash scripts/droidkit up --profile profiles/pixel-7-hw.json   # profile 里 gpu_
 
 两个 tag 指向同一棵树，差异只在 profile 与启动参数，见 `RELEASE.md`。
 
+## 屏幕与触控
+
+`droidkit touch` 通过容器内自建的 uinput 触摸屏注入手势，事件带真实
+`deviceId`、压力与接触面积，而不是 `adb shell input` 的注入痕迹：
+
+| 字段 | `adb shell input` | DroidKit |
+|---|---|---|
+| deviceId / 设备名 | `-1` / `Virtual` | `6` / `fts_ts` |
+| pressure / size / major | `1.0` / `1.0` / `0` | `0.35–0.46` / `0.20–0.24` / `52–61` |
+| 事件序列 | DOWN, UP | DOWN, MOVE…, UP |
+
+```bash
+droidkit touch ensure                      # 起注入守护进程 + 建 /dev/input 节点
+droidkit touch tap --text 登录              # 按文本点（也可 --id / --desc / 坐标）
+droidkit touch swipe 540 1400 540 600 --ms 250
+droidkit touch scroll down 700
+droidkit touch screen                      # scrcpy 窗口，鼠标/触摸直接操作
+```
+
+参数、拟人化模型、宿主机 udev 隔离和已知限制见 [TOUCH.md](TOUCH.md)。
+
 ## 许可
 
 Apache License 2.0，全文见 `LICENSE`，版权与归属见 `NOTICE`。

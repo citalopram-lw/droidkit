@@ -11,3 +11,6 @@ profiles/local/
 *.log
 .DS_Store
 *.idsig
+android/uinput/prebuilt/
+*.batch
+live/

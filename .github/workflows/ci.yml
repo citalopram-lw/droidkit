@@ -15,5 +15,7 @@ jobs:
         run: python -m compileall -q droidkit
       - name: cli smoke
         run: bash scripts/droidkit --version
+      - name: unit tests
+        run: python -m unittest discover -s tests -t . -v
       - name: module sources present
         run: test "$(find android/module/src -name '*.java' | wc -l)" -ge 5

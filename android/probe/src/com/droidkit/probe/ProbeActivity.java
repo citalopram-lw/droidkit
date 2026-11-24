@@ -20,6 +20,8 @@ public class ProbeActivity extends Activity implements SensorEventListener {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        setContentView(new TouchProbeView(this));
+
         SensorManager sm = (SensorManager) getSystemService(SENSOR_SERVICE);
         List<Sensor> all = sm.getSensorList(Sensor.TYPE_ALL);
         Log.i(T, "sensor_count=" + all.size());
