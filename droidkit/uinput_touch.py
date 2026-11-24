@@ -270,5 +270,5 @@ class Touch:
             "daemon": self._daemon_running(),
             "device": self._event_node(),
             "bound": f": {DEVICE_NAME}" in self.adb.sh("dumpsys input"),
-            "cmd": self.adb.sh(f"wc -c < {CMD_PATH}").strip(),
+            "cmd": self.adb.sh(f"wc -c < {CMD_PATH} 2>/dev/null || echo 0").strip(),
         }
