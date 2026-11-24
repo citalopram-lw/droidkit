@@ -4,4 +4,4 @@
 Container lifecycle, performance tuning, virtual sensors, anti-virtualization
 audit/hardening and an MCP server, for redroid-based Android 15 on Linux.
 """
-__version__ = "0.2.1"
+__version__ = "0.2.2"

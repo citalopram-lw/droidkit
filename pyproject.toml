@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "droidkit"
-version = "0.2.1"
+version = "0.2.2"
 description = "Android-in-Linux device platform: containers, virtual sensors/GPS, human-like touch, anti-virtualization audit, MCP server"
 readme = "README.md"
 requires-python = ">=3.10"

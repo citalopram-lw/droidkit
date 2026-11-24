@@ -106,10 +106,10 @@ static void contact_fields(int x, int y, int pressure, int major) {
     emit(EV_ABS, ABS_MT_WIDTH_MAJOR, major);
 }
 
-static void finger_down(int x, int y) {
+static void finger_down(int x, int y, int pressure, int major) {
     emit(EV_ABS, ABS_MT_SLOT, 0);
     emit(EV_ABS, ABS_MT_TRACKING_ID, next_tid++);
-    contact_fields(x, y, 0, 0);
+    contact_fields(x, y, pressure, major);
     emit(EV_KEY, BTN_TOUCH, 1);
     sync_report();          /* one frame: contact + BTN_TOUCH together */
 }
@@ -129,7 +129,7 @@ static void do_swipe(int x1, int y1, int x2, int y2, int ms) {
     if (ms < 20) ms = 200;
     int steps = ms / 8;
     if (steps < 4) steps = 4;
-    finger_down(x1, y1);
+    finger_down(x1, y1, 0, 0);
     for (int i = 1; i <= steps; i++) {
         double t = (double)i / steps;
         /* ease-in-out: matches how a thumb actually accelerates */
@@ -147,11 +147,11 @@ static void handle_line(char *line) {
     if (n < 1) return;
     if (!strcmp(cmd, "tap") && n >= 3) {
         int hold = n >= 4 ? c : 80;
-        finger_down(a, b);
+        finger_down(a, b, 0, 0);
         usleep(hold * 1000);
         finger_up();
     } else if (!strcmp(cmd, "down") && n >= 3) {
-        finger_down(a, b);
+        finger_down(a, b, n >= 4 ? c : 0, n >= 5 ? d : 0);
     } else if (!strcmp(cmd, "move") && n >= 3) {
         finger_move(a, b, n >= 4 ? c : 0, n >= 5 ? d : 0);
     } else if (!strcmp(cmd, "up")) {

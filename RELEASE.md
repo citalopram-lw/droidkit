@@ -1,5 +1,17 @@
 # Release notes
 
+## v0.2.2 — no zero-size contact frames
+
+v0.2.1 保证了每帧都带 `pressure/major`，但实测仍偶发 `size=0.000` 的 MOVE 帧。根因在
+内核：`input_handle_abs_event` 会**丢弃值未变化的 `EV_ABS`**，随机取值撞车时那一帧就没有
+`TOUCH_MAJOR`，应用侧读到的 `getSize()` 为 0。
+
+修法：接触面积改成跨手势单调递增的计数器（48–88 循环），按压帧与每个 MOVE 帧都取新值。
+
+实测（探针，260 ms 滑动 × 6 次）：`size=0.000` 帧数全部为 **0**；tap 首帧必落；
+长按 `--hold 700` 内核层实测 **700.1 ms**。
+
+
 ## v0.2.1 — touch correctness fixes
 
 三处修复，都是 v0.2.0 实测暴露出来的：

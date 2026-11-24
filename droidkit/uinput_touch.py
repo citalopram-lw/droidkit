@@ -54,6 +54,14 @@ class Touch:
     def __init__(self, adb: Adb | None = None, human: bool = True):
         self.adb = adb or Adb()
         self.human = human
+        # Contact size must differ from the previous frame, even across
+        # gestures: the kernel drops ABS events whose value is unchanged, and a
+        # dropped TOUCH_MAJOR reaches the app as size=0.
+        self._contact_seq = random.randint(60, 90)
+
+    def _next_contact(self) -> int:
+        self._contact_seq = 48 + (self._contact_seq - 48 + 1) % 40
+        return self._contact_seq
 
     # ------------------------------------------------------------- daemon side
     def _repo_binary(self) -> str:
@@ -189,7 +197,8 @@ class Touch:
         """
         if os.environ.get("DROIDKIT_NO_WARMUP"):
             return False
-        self._send(["down 2 2", "sleep 40", "move 3 3 100 58", "sleep 16", "up"])
+        m1, m2 = self._next_contact(), self._next_contact()
+        self._send([f"down 2 2 96 {m1}", "sleep 40", f"move 3 3 100 {m2}", "sleep 16", "up"])
         time.sleep(0.12)
         return True
 
@@ -225,7 +234,8 @@ class Touch:
     def tap(self, x: int, y: int, hold_ms: int | None = None) -> None:
         x, y = self._jitter(x, y)
         hold = self._hold(hold_ms)
-        self._send([f"down {x} {y}", f"sleep {hold}", "up"])
+        major = self._next_contact() if self.human else 58
+        self._send([f"down {x} {y} 96 {major}", f"sleep {hold}", "up"])
 
     def long_press(self, x: int, y: int, ms: int | None = None) -> None:
         x, y = self._jitter(x, y, sigma=1.0)
@@ -259,12 +269,18 @@ class Touch:
         x1, y1 = self._jitter(x1, y1, sigma=1.0)
         x2, y2 = self._jitter(x2, y2, sigma=1.5)
         step_ms = max(8, int(1000 / STEP_HZ))
-        lines = [f"down {x1} {y1}"]
-        for px, py in self.path(x1, y1, x2, y2, ms):
-            # pressure and contact size travel with every step: a frame that
-            # omits them arrives at the app as size=0 / major=0
-            press = 88 + random.randint(0, 34) if self.human else 100
-            major = 50 + random.randint(0, 15) if self.human else 58
+        # Give the press frame its own contact values so the first move cannot
+        # repeat them: the kernel drops ABS events whose value is unchanged.
+        press0 = 96 if self.human else 100
+        major0 = self._next_contact() if self.human else 58
+        lines = [f"down {x1} {y1} {press0} {major0}"]
+        for i, (px, py) in enumerate(self.path(x1, y1, x2, y2, ms)):
+            # Pressure and contact size travel with every step. They must also
+            # *change* every step: the kernel drops ABS events whose value is
+            # unchanged (input_handle_abs_event), so a repeated value leaves the
+            # frame without a fresh TOUCH_MAJOR and the app reports size=0.
+            press = 92 + (i * 5) % 29 if self.human else 100
+            major = self._next_contact() if self.human else 58
             lines += [f"move {px} {py} {press} {major}", f"sleep {step_ms}"]
         lines.append("up")
         self._send(lines)
